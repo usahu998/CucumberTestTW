@@ -1,0 +1,111 @@
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    compile group: 'org.apache.poi', name: 'poi', version: '3.17'
+    compile group: 'org.apache.poi', name: 'poi-ooxml', version: '3.16'
+
+    // https://mvnrepository.com/artifact/info.cukes/cucumber-java
+    compile group: 'info.cukes', name: 'cucumber-java', version: '1.2.4'
+
+    // https://mvnrepository.com/artifact/info.cukes/cucumber-junit
+    testCompile group: 'info.cukes', name: 'cucumber-junit', version: '1.2.5'
+
+    // https://mvnrepository.com/artifact/info.cukes/cucumber-jvm-deps
+    compile group: 'info.cukes', name: 'cucumber-jvm-deps', version: '1.0.5'
+
+    // https://mvnrepository.com/artifact/net.masterthought/cucumber-reporting
+    compile group: 'net.masterthought', name: 'cucumber-reporting', version: '5.0.2'
+
+    // https://mvnrepository.com/artifact/info.cukes/gherkin
+    compile group: 'info.cukes', name: 'gherkin', version: '2.12.2'
+
+    // https://mvnrepository.com/artifact/junit/junit
+    testCompile group: 'junit', name: 'junit', version: '4.13'
+
+    // https://mvnrepository.com/artifact/org.seleniumhq.selenium/selenium-java
+    compile group: 'org.seleniumhq.selenium', name: 'selenium-java', version: '3.141.59'
+    implementation 'org.testng:testng:6.9.6'
+
+
+}
+
+task runSmokeTests() {
+    dependsOn assemble, compileTestJava
+
+    doFirst {
+    //    def os="linux"
+     //   def url="pkzpp6txvd.execute-api.ap-south-1.amazonaws.com"
+//        if (Os.isFamily(Os.FAMILY_MAC)) {
+//            println "*** MAC "
+//            os="mac"
+//        }
+//        println "Identified OS : ${os} & path : ${project.projectDir}"
+//        println "sh start_selenium.sh ${os} ${project.projectDir} &".execute()
+//        println "sh lambda_warmer.sh ${url} &".execute()
+        try { exec {
+            executable "sh"
+            args "-c", "rm -r ${reporting.baseDir}/cucumber"
+            println("Report folder cleaned up successfully.")
+        }
+        } catch (Exception e) {
+            println("Exception thrown while report folder clean up")
+        }
+    }
+
+    doLast {
+//        try {
+//            javaexec {
+//                main = "cucumber.api.cli.Main"
+//                classpath = configurations.cucumberRuntime + sourceSets.main.output + sourceSets.test.output
+//                args = ['--plugin', 'pretty', '--glue', 'banker.gradle', 'src/test/resources','--tags','@SmokeTest']
+//            }
+//        }
+
+            def testProperties = "-DsomePropertie=somePropertie"
+            runBuildTests(testProperties, "~@pending")
+
+//        finally {
+//            println("Shutting down selenium hub and node(s).")
+//            println "sh stop_selenium.sh &".execute()
+//        }
+    }
+}
+
+def runBuildTests(testProperties, tag) {
+    def features = fileTree(dir: "${project.projectDir}/src/test/resources/").include '**/*.feature'
+
+    try {
+        GParsPool.withPool(1) {
+            features.eachParallel { File file ->
+                try { exec {
+                    executable "sh"
+                  //  args "-c", "mkdir -p ${reporting.baseDir}/cucumber" +
+                    //        "&& java ${testProperties} " +
+                            "-cp ${sourceSets.main.runtimeClasspath.asPath} " +
+                            "cucumber.api.cli.Main " +
+                         //   "--glue classpath:bankerPlaybackTests.src.main.java.banker.gradle " +
+                            "${project.projectDir}/src/test/resources/${file.name} " +
+                          //  "--plugin json:${reporting.baseDir}/cucumber/${file.name}.json " +
+                          //  "--plugin pretty > ${reporting.baseDir}/cucumber/${file.name}.log " +
+                            "--tags @DemoTest"
+                }
+                } finally {
+                    println("${file.name}: Scenario output: ${reporting.baseDir}/cucumber/${file.name}.log ") }
+            }
+        }
+    } finally {
+        generateReport()
+    }
+}
